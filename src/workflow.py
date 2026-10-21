@@ -1,41 +1,23 @@
 from src import analyse, extraction, notification
-from src.contrat import PROCEDURES
+from src.contrat import FICHES
 
 
-def _traiter(evt, vus, compteur, historique, base):
-    if analyse.est_doublon(evt, vus):
+def _traiter(sig, vus, compteur, registre, base):
+    if analyse.est_repete(sig, vus):
         return None
-
-    nb_erreurs = analyse.compter_erreurs(evt, compteur)
-    ana = analyse.analyser(evt, base, nb_erreurs)
-    notif = notification.notifier(evt, ana, historique)
-
-    return {
-        "evenement": evt,
-        "analyse": ana,
-        "notification": notif
-    }
+    nb = analyse.compter_incidents(sig, compteur)
+    diag = analyse.diagnostiquer(sig, base, nb)
+    msg = notification.diffuser(sig, diag, registre)
+    return {"signal": sig, "diagnostic": diag, "message": msg}
 
 
-def traiter_log(ligne, numero, vus, compteur, historique,
-               base=PROCEDURES):
-    return _traiter(
-        extraction.normaliser_log(ligne, numero),
-        vus, compteur, historique, base
-    )
+def traiter_journal(ligne, numero, vus, compteur, registre, base=FICHES):
+    return _traiter(extraction.lire_journal(ligne, numero), vus, compteur, registre, base)
 
 
-def traiter_scan(rapport, numero, vus, compteur, historique,
-                base=PROCEDURES):
-    return _traiter(
-        extraction.normaliser_scan(rapport, numero),
-        vus, compteur, historique, base
-    )
+def traiter_scan(rapport, numero, vus, compteur, registre, base=FICHES):
+    return _traiter(extraction.lire_scan(rapport, numero), vus, compteur, registre, base)
 
 
-def traiter_pipeline(rapport, numero, vus, compteur, historique,
-                    base=PROCEDURES):
-    return _traiter(
-        extraction.normaliser_pipeline(rapport, numero),
-        vus, compteur, historique, base
-    )
+def traiter_build(rapport, numero, vus, compteur, registre, base=FICHES):
+    return _traiter(extraction.lire_build(rapport, numero), vus, compteur, registre, base)

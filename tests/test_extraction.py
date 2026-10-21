@@ -1,0 +1,155 @@
+import unittest
+
+from src.contrat import Signal
+from src.extraction import lire_build, lire_journal, lire_scan, masquer_donnees
+
+LIGNE = "2026-11-27 17:02:11 paiement ERROR timeout passerelle apres 30s card=4970123412341234"
+
+
+class TestExtraction(unittest.TestCase):
+    def test_masquer_donnees(self):
+        self.assertEqual(masquer_donnees("client=bob pwd=abc123"),
+                         "client=bob pwd=[MASQUE]")
+
+    def test_masquer_chaque_parametre_sans_tenir_compte_de_la_casse(self):
+        for nom in ("password", "pwd", "token", "secret", "card", "iban"):
+            for casse in (nom, nom.upper(), nom.title()):
+                with self.subTest(parametre=casse):
+                    self.assertEqual(masquer_donnees(f"{casse}=abc123"),
+                                     f"{casse}=[MASQUE]")
+
+    def test_masquer_separateurs_et_delimiteurs(self):
+        for separateur in ("=", ":", ": "):
+            for delimiteur in (" ", "&", ",", ";"):
+                with self.subTest(separateur=separateur, delimiteur=delimiteur):
+                    self.assertEqual(
+                        masquer_donnees(f"card{separateur}4970123412341234{delimiteur}suite"),
+                        f"card{separateur}[MASQUE]{delimiteur}suite",
+                    )
+
+    def test_masquer_plusieurs_donnees(self):
+        self.assertEqual(
+            masquer_donnees("pwd=abc&IBAN: MA123;token=123,card: 4970123412341234"),
+            "pwd=[MASQUE]&IBAN: [MASQUE];token=[MASQUE],card: [MASQUE]",
+        )
+
+    def test_texte_sans_donnee_sensible_inchange(self):
+        for texte in ("", "Service demarre", "client=bob cardholder=Alice mypassword=xyz"):
+            with self.subTest(texte=texte):
+                self.assertEqual(masquer_donnees(texte), texte)
+
+    def test_lire_journal(self):
+        sig = lire_journal(LIGNE, 42)
+        self.assertIsInstance(sig, Signal)
+        self.assertEqual(sig, Signal(
+            "SH-0042", "2026-11-27T17:02:11Z", "PAIEMENT", "paiement",
+            "production", "JOURNAL", "MAJEUR", "timeout passerelle apres 30s card=[MASQUE]",
+        ))
+        self.assertEqual(sig.etat, "RECU")
+        self.assertNotIn("4970123412341234", sig.texte)
+
+    def test_gravites_journal(self):
+        for niveau, attendu in (
+            ("FATAL", "BLOQUANT"), ("critical", "BLOQUANT"), ("error", "MAJEUR"),
+            ("warn", "MODERE"), ("WaRnInG", "MODERE"), ("INFO", "MINEUR"),
+            ("DEBUG", "MINEUR"), ("INCONNU", "MINEUR"),
+        ):
+            with self.subTest(niveau=niveau):
+                sig = lire_journal(f"2026-11-27 17:02:11 paiement {niveau} message", 1)
+                self.assertEqual(sig.gravite, attendu)
+
+    def test_journal_origine_et_environnement_personnalises(self):
+        sig = lire_journal(LIGNE, 7, origine="PANIER", env="test")
+        self.assertEqual(sig.ref, "SH-0007")
+        self.assertEqual(sig.origine, "PANIER")
+        self.assertEqual(sig.env, "test")
+
+    def test_journal_conserve_le_reste_du_texte(self):
+        sig = lire_journal("2026-11-27 17:02:11 paiement INFO Service  demarre", 1)
+        self.assertEqual(sig.texte, "Service  demarre")
+
+    def test_journal_incomplet(self):
+        for ligne in ("", "2026-11-27", "2026-11-27 17:02:11",
+                      "2026-11-27 17:02:11 paiement", "2026-11-27 17:02:11 paiement INFO"):
+            with self.subTest(ligne=ligne):
+                with self.assertRaises(ValueError):
+                    lire_journal(ligne, 1)
+
+    def test_lire_scan(self):
+        rapport = {"id_faille": "CVE-2026-7788", "paquet": "lib-panier", "risque": "critique",
+                   "date": "2026-11-27T17:09:00Z"}
+        sig = lire_scan(rapport, 42)
+        self.assertEqual(sig, Signal(
+            "SH-0042", rapport["date"], "SCANNER", "lib-panier", "production",
+            "FAILLE", "BLOQUANT", "Faille CVE-2026-7788 dans lib-panier",
+        ))
+        self.assertEqual(sig.etat, "RECU")
+
+    def test_gravites_scan(self):
+        for risque, attendu in (("critique", "BLOQUANT"), ("CRITIQUE", "BLOQUANT"),
+                                ("Haut", "MAJEUR"), ("MOYEN", "MODERE"),
+                                ("bas", "MINEUR"), ("inconnu", "MINEUR"),
+                                ("critical", "MINEUR"), ("", "MINEUR")):
+            with self.subTest(risque=risque):
+                rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": risque,
+                           "date": "2026-11-27T17:09:00Z"}
+                self.assertEqual(lire_scan(rapport, 1).gravite, attendu)
+
+    def test_scan_environnement_personnalise(self):
+        rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": "haut", "date": "date"}
+        sig = lire_scan(rapport, 1, env="dev")
+        self.assertEqual(sig.env, "dev")
+        self.assertEqual(sig.date, "date")
+
+    def test_scan_cle_manquante(self):
+        rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": "haut", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    lire_scan(incomplet, 1)
+
+    def test_lire_build(self):
+        rapport = {"etape": "deploiement", "resultat": "echec", "date": "2026-11-27T17:08:00Z"}
+        sig = lire_build(rapport, 42)
+        self.assertEqual(sig, Signal(
+            "SH-0042", rapport["date"], "BUILD", "deploiement", "production",
+            "BUILD_ECHEC", "MAJEUR", "Build deploiement : echec",
+        ))
+        self.assertEqual(sig.etat, "RECU")
+
+    def test_build_echec_sans_tenir_compte_de_la_casse(self):
+        for resultat in ("echec", "ECHEC", "EcHeC"):
+            with self.subTest(resultat=resultat):
+                rapport = {"etape": "deploiement", "resultat": resultat, "date": "date"}
+                sig = lire_build(rapport, 1)
+                self.assertEqual(sig.categorie, "BUILD_ECHEC")
+                self.assertEqual(sig.gravite, "MAJEUR")
+                self.assertEqual(sig.texte, f"Build deploiement : {resultat}")
+
+    def test_build_autres_resultats(self):
+        for resultat in ("succes", "ok", "en_cours", "inconnu", "failed", ""):
+            with self.subTest(resultat=resultat):
+                rapport = {"etape": "deploiement", "resultat": resultat, "date": "date"}
+                sig = lire_build(rapport, 1)
+                self.assertEqual(sig.categorie, "BUILD_OK")
+                self.assertEqual(sig.gravite, "MINEUR")
+                self.assertEqual(sig.texte, f"Build deploiement : {resultat}")
+
+    def test_build_environnement_personnalise(self):
+        rapport = {"etape": "deploiement", "resultat": "succes", "date": "date"}
+        sig = lire_build(rapport, 1, env="test")
+        self.assertEqual(sig.env, "test")
+        self.assertEqual(sig.date, "date")
+
+    def test_build_cle_manquante(self):
+        rapport = {"etape": "deploiement", "resultat": "echec", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    lire_build(incomplet, 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

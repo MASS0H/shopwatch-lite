@@ -1,21 +1,21 @@
-from src.contrat import Analyse, Evenement
+from src.contrat import Diagnostic, Signal
 
 
-def est_doublon(evt: Evenement, vus: set) -> bool:
+def est_repete(sig: Signal, vus: set) -> bool:
     raise NotImplementedError
 
 
-def compter_erreurs(evt: Evenement, compteur: dict) -> int:
+def compter_incidents(sig: Signal, compteur: dict) -> int:
     raise NotImplementedError
 
 
-def chercher_procedures(evt: Evenement, base: dict) -> list:
+def chercher_fiches(sig: Signal, base: dict) -> list:
     raise NotImplementedError
 
 
-def classifier(evt: Evenement, nb_erreurs: int = 0) -> str:
+def evaluer(sig: Signal, nb_incidents: int = 0) -> str:
     raise NotImplementedError
 
 
-def analyser(evt: Evenement, base: dict, nb_erreurs: int = 0) -> Analyse:
+def diagnostiquer(sig: Signal, base: dict, nb_incidents: int = 0) -> Diagnostic:
     raise NotImplementedError

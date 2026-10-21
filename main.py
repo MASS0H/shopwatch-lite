@@ -1,91 +1,57 @@
 import sys
 from datetime import datetime, timezone
 
-from src.notification import tracer_decision, valider_action
-from src.workflow import traiter_log, traiter_pipeline, traiter_scan
+from src.notification import approuver, consigner
+from src.workflow import traiter_build, traiter_journal, traiter_scan
 
-
-LOGS = [
-    "2026-10-05 10:00:01 INFO backend Service demarre",
-    "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 password=abc123",
-    "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 password=abc123",
-    "2026-10-05 10:03:20 ERROR backend OOMKilled restarts=15",
-    "2026-10-05 10:04:30 ERROR backend OOMKilled restarts=16",
-    "2026-10-05 10:05:40 ERROR backend OOMKilled restarts=17",
+JOURNAL = [
+    "2026-11-27 17:00:01 paiement INFO Service demarre",
+    "2026-11-27 17:02:11 paiement ERROR timeout passerelle apres 30s card=4970123412341234",
+    "2026-11-27 17:02:11 paiement ERROR timeout passerelle apres 30s card=4970123412341234",
+    "2026-11-27 17:03:20 paiement ERROR timeout passerelle apres 31s",
+    "2026-11-27 17:04:30 paiement ERROR timeout passerelle apres 29s",
+    "2026-11-27 17:05:40 paiement ERROR timeout passerelle apres 33s",
+    "2026-11-27 17:06:50 paiement ERROR timeout passerelle apres 35s",
 ]
-
-RAPPORTS_PIPELINE = [
-    {
-        "job": "build",
-        "status": "failed",
-        "date": "2026-10-05T10:06:00Z"
-    }
+RAPPORTS_BUILD = [
+    {"etape": "deploiement", "resultat": "echec", "date": "2026-11-27T17:08:00Z"},
 ]
-
 RAPPORTS_SCAN = [
-    {
-        "cve": "CVE-2026-1234",
-        "package": "lib-xyz",
-        "severity": "critical",
-        "date": "2026-10-05T10:07:00Z"
-    }
+    {"id_faille": "CVE-2026-7788", "paquet": "lib-panier", "risque": "critique",
+     "date": "2026-11-27T17:09:00Z"},
 ]
 
 
-def afficher(resultat, audit):
-    notif = resultat["notification"]
-    ana = resultat["analyse"]
-
-    print(f"--- {notif.event_id} -> {notif.channel} ({notif.recipient})")
-    print(notif.text)
-
-    if ana.sensitive:
-        reponse = input("Action sensible. Approuver ? (o/n) : ")
-        ok = valider_action(ana, reponse)
-
-        maintenant = datetime.now(timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
-
-        tracer_decision(ana, ok, "ops-oncall", audit, maintenant)
-
-        print(
-            "Action",
-            "APPROUVEE" if ok else "REFUSEE",
-            "(simulation : rien n'est execute)"
-        )
-
+def afficher(resultat, carnet):
+    msg, diag = resultat["message"], resultat["diagnostic"]
+    print(f">>> {msg.signal_ref} par {msg.canal} ({msg.destinataire})")
+    print(msg.contenu)
+    if diag.critique:
+        reponse = input("Action critique. Autoriser ? (o/n) : ")
+        accord = approuver(diag, reponse)
+        instant = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        consigner(diag, accord, "astreinte-shop", carnet, instant)
+        print("Decision :", "AUTORISEE" if accord else "REFUSEE",
+              "(simulation : rien n'est execute)")
     print()
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-
-    vus, compteur, historique, audit = set(), {}, [], []
-
-    entrees = [(traiter_log, x) for x in LOGS]
-    entrees += [(traiter_pipeline, x) for x in RAPPORTS_PIPELINE]
+    vus, compteur, registre, carnet = set(), {}, [], []
+    entrees = [(traiter_journal, x) for x in JOURNAL]
+    entrees += [(traiter_build, x) for x in RAPPORTS_BUILD]
     entrees += [(traiter_scan, x) for x in RAPPORTS_SCAN]
-
-    ignores = 0
-
+    repetes = 0
     for numero, (traiter, brut) in enumerate(entrees, start=1):
-        resultat = traiter(
-            brut, numero, vus, compteur, historique
-        )
-
+        resultat = traiter(brut, numero, vus, compteur, registre)
         if resultat is None:
-            ignores += 1
-            print(f"--- EVT-{numero:05d} ignore (doublon)\n")
+            repetes += 1
+            print(f">>> SH-{numero:04d} ignore (repete)\n")
         else:
-            afficher(resultat, audit)
-
-    print(
-        f"{len(entrees)} evenements recus, "
-        f"{ignores} doublon(s) ignore(s), "
-        f"{len(historique)} notification(s), "
-        f"{len(audit)} decision(s) tracee(s)."
-    )
+            afficher(resultat, carnet)
+    print(f"{len(entrees)} signaux recus, {repetes} repete(s) ignore(s), "
+          f"{len(registre)} message(s) diffuse(s), {len(carnet)} decision(s) consignee(s).")
 
 
 if __name__ == "__main__":
