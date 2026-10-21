@@ -8,6 +8,6 @@ Mini-plateforme de supervision d'une chaine DevSecOps : trois agents
 
 ## Equipe
 
-- Malak RAGUIGUE - Etudiante A - Extraction
-- Etudiante B - Analyse
-- Etudiant C - Notification
+- Hossam - Etudiante A - Extraction
+- Nouhaila- Analyse
+- Maroua- Notification
