@@ -1,7 +1,7 @@
 import unittest
 
 from src.contrat import Signal
-from src.extraction import lire_journal, lire_scan, masquer_donnees
+from src.extraction import lire_build, lire_journal, lire_scan, masquer_donnees
 
 LIGNE = "2026-11-27 17:02:11 paiement ERROR timeout passerelle apres 30s card=4970123412341234"
 
@@ -108,6 +108,47 @@ class TestExtraction(unittest.TestCase):
                 incomplet = {k: v for k, v in rapport.items() if k != cle}
                 with self.assertRaises(ValueError):
                     lire_scan(incomplet, 1)
+
+    def test_lire_build(self):
+        rapport = {"etape": "deploiement", "resultat": "echec", "date": "2026-11-27T17:08:00Z"}
+        sig = lire_build(rapport, 42)
+        self.assertEqual(sig, Signal(
+            "SH-0042", rapport["date"], "BUILD", "deploiement", "production",
+            "BUILD_ECHEC", "MAJEUR", "Build deploiement : echec",
+        ))
+        self.assertEqual(sig.etat, "RECU")
+
+    def test_build_echec_sans_tenir_compte_de_la_casse(self):
+        for resultat in ("echec", "ECHEC", "EcHeC"):
+            with self.subTest(resultat=resultat):
+                rapport = {"etape": "deploiement", "resultat": resultat, "date": "date"}
+                sig = lire_build(rapport, 1)
+                self.assertEqual(sig.categorie, "BUILD_ECHEC")
+                self.assertEqual(sig.gravite, "MAJEUR")
+                self.assertEqual(sig.texte, f"Build deploiement : {resultat}")
+
+    def test_build_autres_resultats(self):
+        for resultat in ("succes", "ok", "en_cours", "inconnu", "failed", ""):
+            with self.subTest(resultat=resultat):
+                rapport = {"etape": "deploiement", "resultat": resultat, "date": "date"}
+                sig = lire_build(rapport, 1)
+                self.assertEqual(sig.categorie, "BUILD_OK")
+                self.assertEqual(sig.gravite, "MINEUR")
+                self.assertEqual(sig.texte, f"Build deploiement : {resultat}")
+
+    def test_build_environnement_personnalise(self):
+        rapport = {"etape": "deploiement", "resultat": "succes", "date": "date"}
+        sig = lire_build(rapport, 1, env="test")
+        self.assertEqual(sig.env, "test")
+        self.assertEqual(sig.date, "date")
+
+    def test_build_cle_manquante(self):
+        rapport = {"etape": "deploiement", "resultat": "echec", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    lire_build(incomplet, 1)
 
 
 if __name__ == "__main__":
