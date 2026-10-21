@@ -1,40 +1,41 @@
 from dataclasses import dataclass
 
-NIVEAUX = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+NIVEAUX = ["MINEUR", "MODERE", "MAJEUR", "BLOQUANT"]
 
-PROCEDURES = {
-    "oomkilled": "Conteneur arrete faute de memoire : augmenter la limite memoire.",
-    "pipeline": "Echec de pipeline : lire les logs du job puis relancer apres correction.",
-    "vulnerabilite": "Vulnerabilite : mettre a jour la dependance vers une version corrigee.",
+# Fiches de procedures (recherche simplifiee) : mot-cle -> conseil
+FICHES = {
+    "timeout": "Delai depasse : verifier la passerelle de paiement puis relancer le service.",
+    "build": "Echec de build : lire le journal de l'etape puis rejouer apres correction.",
+    "faille": "Faille connue : mettre a jour la dependance vers une version corrigee.",
 }
 
 
 @dataclass
-class Evenement:
-    id: str
-    timestamp: str
-    source: str
-    component: str
-    environment: str
-    event_type: str
-    severity: str
-    message: str
-    status: str = "NEW"
+class Signal:
+    ref: str
+    date: str
+    origine: str         # PAIEMENT, SCANNER ou BUILD
+    service: str
+    env: str             # dev, test ou production
+    categorie: str       # JOURNAL, FAILLE, BUILD_ECHEC ou BUILD_OK
+    gravite: str
+    texte: str
+    etat: str = "RECU"   # RECU -> EVALUE -> DIFFUSE
 
 
 @dataclass
-class Analyse:
-    event_id: str
-    level: str
-    explanation: str
+class Diagnostic:
+    signal_ref: str
+    niveau: str
+    cause: str
     action: str
-    sensitive: bool
-    sources: list
+    critique: bool
+    origines: list
 
 
 @dataclass
-class Notification:
-    event_id: str
-    channel: str
-    recipient: str
-    text: str
+class Message:
+    signal_ref: str
+    canal: str
+    destinataire: str
+    contenu: str
