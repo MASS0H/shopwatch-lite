@@ -1,7 +1,7 @@
 import unittest
 
 from src.contrat import Evenement
-from src.extraction import masquer_secrets, normaliser_log
+from src.extraction import masquer_secrets, normaliser_log, normaliser_scan
 
 LIGNE = "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 password=abc123"
 
@@ -74,6 +74,39 @@ class TestExtraction(unittest.TestCase):
             with self.subTest(ligne=ligne):
                 with self.assertRaises(ValueError):
                     normaliser_log(ligne, 1)
+
+    def test_normaliser_scan(self):
+        rapport = {"cve": "CVE-2026-1234", "package": "lib-xyz", "severity": "critical",
+                   "date": "2026-10-05T10:07:00Z"}
+        evt = normaliser_scan(rapport, 42)
+        self.assertEqual(evt, Evenement(
+            "EVT-00042", rapport["date"], "TRIVY", "lib-xyz", "production",
+            "VULNERABILITY", "CRITICAL", "Vulnerabilite CVE-2026-1234 dans lib-xyz",
+        ))
+        self.assertEqual(evt.status, "NEW")
+
+    def test_niveaux_scan(self):
+        for niveau, attendu in (("critical", "CRITICAL"), ("High", "HIGH"),
+                                ("medium", "MEDIUM"), ("low", "LOW"),
+                                ("UNKNOWN", "LOW"), ("", "LOW")):
+            with self.subTest(niveau=niveau):
+                rapport = {"cve": "CVE-1", "package": "lib", "severity": niveau,
+                           "date": "2026-10-05T10:07:00Z"}
+                self.assertEqual(normaliser_scan(rapport, 1).severity, attendu)
+
+    def test_scan_environnement_personnalise(self):
+        rapport = {"cve": "CVE-1", "package": "lib", "severity": "high", "date": "date"}
+        evt = normaliser_scan(rapport, 1, environment="dev")
+        self.assertEqual(evt.environment, "dev")
+        self.assertEqual(evt.timestamp, "date")
+
+    def test_scan_cle_manquante(self):
+        rapport = {"cve": "CVE-1", "package": "lib", "severity": "high", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    normaliser_scan(incomplet, 1)
 
 
 if __name__ == "__main__":

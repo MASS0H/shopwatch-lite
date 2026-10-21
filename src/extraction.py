@@ -36,7 +36,19 @@ def normaliser_log(ligne: str, numero: int, source: str = "DOCKER",
 
 def normaliser_scan(rapport: dict, numero: int,
                    environment: str = "production") -> Evenement:
-    raise NotImplementedError
+    if not {"cve", "package", "severity", "date"}.issubset(rapport):
+        raise ValueError("Un rapport de scan doit contenir cve, package, severity et date")
+    niveau = rapport["severity"].upper()
+    return Evenement(
+        id=f"EVT-{numero:05d}",
+        timestamp=rapport["date"],
+        source="TRIVY",
+        component=rapport["package"],
+        environment=environment,
+        event_type="VULNERABILITY",
+        severity=niveau if niveau in {"CRITICAL", "HIGH", "MEDIUM", "LOW"} else "LOW",
+        message=f"Vulnerabilite {rapport['cve']} dans {rapport['package']}",
+    )
 
 
 def normaliser_pipeline(rapport: dict, numero: int,
