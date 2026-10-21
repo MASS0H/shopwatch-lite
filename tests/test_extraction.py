@@ -1,7 +1,7 @@
 import unittest
 
 from src.contrat import Evenement
-from src.extraction import masquer_secrets, normaliser_log, normaliser_scan
+from src.extraction import masquer_secrets, normaliser_log, normaliser_pipeline, normaliser_scan
 
 LIGNE = "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 password=abc123"
 
@@ -107,6 +107,47 @@ class TestExtraction(unittest.TestCase):
                 incomplet = {k: v for k, v in rapport.items() if k != cle}
                 with self.assertRaises(ValueError):
                     normaliser_scan(incomplet, 1)
+
+    def test_normaliser_pipeline(self):
+        rapport = {"job": "build", "status": "failed", "date": "2026-10-05T10:06:00Z"}
+        evt = normaliser_pipeline(rapport, 42)
+        self.assertEqual(evt, Evenement(
+            "EVT-00042", rapport["date"], "CI", "build", "production",
+            "PIPELINE_FAILURE", "HIGH", "Pipeline build : failed",
+        ))
+        self.assertEqual(evt.status, "NEW")
+
+    def test_pipeline_failed_sans_tenir_compte_de_la_casse(self):
+        for statut in ("failed", "FAILED", "FaIlEd"):
+            with self.subTest(statut=statut):
+                rapport = {"job": "build", "status": statut, "date": "date"}
+                evt = normaliser_pipeline(rapport, 1)
+                self.assertEqual(evt.event_type, "PIPELINE_FAILURE")
+                self.assertEqual(evt.severity, "HIGH")
+                self.assertEqual(evt.message, f"Pipeline build : {statut}")
+
+    def test_pipeline_autres_statuts(self):
+        for statut in ("success", "passed", "running", "unknown", ""):
+            with self.subTest(statut=statut):
+                rapport = {"job": "build", "status": statut, "date": "date"}
+                evt = normaliser_pipeline(rapport, 1)
+                self.assertEqual(evt.event_type, "PIPELINE_OK")
+                self.assertEqual(evt.severity, "LOW")
+                self.assertEqual(evt.message, f"Pipeline build : {statut}")
+
+    def test_pipeline_environnement_personnalise(self):
+        rapport = {"job": "build", "status": "success", "date": "date"}
+        evt = normaliser_pipeline(rapport, 1, environment="test")
+        self.assertEqual(evt.environment, "test")
+        self.assertEqual(evt.timestamp, "date")
+
+    def test_pipeline_cle_manquante(self):
+        rapport = {"job": "build", "status": "failed", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    normaliser_pipeline(incomplet, 1)
 
 
 if __name__ == "__main__":

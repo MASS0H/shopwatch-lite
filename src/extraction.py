@@ -53,4 +53,16 @@ def normaliser_scan(rapport: dict, numero: int,
 
 def normaliser_pipeline(rapport: dict, numero: int,
                        environment: str = "production") -> Evenement:
-    raise NotImplementedError
+    if not {"job", "status", "date"}.issubset(rapport):
+        raise ValueError("Un rapport de pipeline doit contenir job, status et date")
+    echec = rapport["status"].lower() == "failed"
+    return Evenement(
+        id=f"EVT-{numero:05d}",
+        timestamp=rapport["date"],
+        source="CI",
+        component=rapport["job"],
+        environment=environment,
+        event_type="PIPELINE_FAILURE" if echec else "PIPELINE_OK",
+        severity="HIGH" if echec else "LOW",
+        message=f"Pipeline {rapport['job']} : {rapport['status']}",
+    )
