@@ -1,0 +1,227 @@
+TP DevOps 3 - Exercice 6 : recuperation apres incident
+Source: C:\Users\houss\Documents\intelliops-lite
+Clone autonome jetable: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+Aucun push; aucune commande mutante dans le depot source.
+Le clone est conserve comme preuve; branche finale: develop.
+PASS: Le clone temporaire est hors du depot utilisateur.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw
+$ git clone --no-hardlinks --single-branch --branch develop C:\Users\houss\Documents\intelliops-lite C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+Cloning into 'C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone'...
+done.
+[exit code: 0]
+PASS: Le clone a son propre repertoire .git, pas un fichier de worktree.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse --git-common-dir
+.git
+[exit code: 0]
+PASS: Le repertoire Git commun appartient exclusivement au clone.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git branch --show-current
+develop
+[exit code: 0]
+PASS: La branche initiale est develop.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git pull --ff-only
+Already up to date.
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git status --porcelain
+
+[exit code: 0]
+PASS: Le clone est propre avant exercice.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse HEAD
+053c58f89b42f4e21a70b72a3d29103fa5582332
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ C:\Python314\python.exe -B -m unittest -v
+test_base_procedures (tests.test_contrat.TestContrat.test_base_procedures) ... ok
+test_niveaux_ordonnes (tests.test_contrat.TestContrat.test_niveaux_ordonnes) ... ok
+test_statut_par_defaut (tests.test_contrat.TestContrat.test_statut_par_defaut) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git checkout -b essai/recuperation
+Switched to a new branch 'essai/recuperation'
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rm src/contrat.py
+rm 'src/contrat.py'
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git commit -m "oops: suppression du contrat"
+[essai/recuperation 7be3321] oops: suppression du contrat
+ 1 file changed, 40 deletions(-)
+ delete mode 100644 src/contrat.py
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse HEAD
+7be332166dd5a22795fd8ac3c6473b19013d9247
+[exit code: 0]
+PASS: Le contrat est supprime dans la branche jetable du clone.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ C:\Python314\python.exe -B -m unittest -v
+tests.test_contrat (unittest.loader._FailedTest.tests.test_contrat) ... ERROR
+
+======================================================================
+ERROR: tests.test_contrat (unittest.loader._FailedTest.tests.test_contrat)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.test_contrat
+Traceback (most recent call last):
+  File "C:\Python314\Lib\unittest\loader.py", line 426, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Python314\Lib\unittest\loader.py", line 367, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone\tests\test_contrat.py", line 3, in <module>
+    from src.contrat import NIVEAUX, PROCEDURES, Evenement
+ModuleNotFoundError: No module named 'src.contrat'
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)
+[exit code: 1]
+PASS: Les tests sont rouges a cause de la suppression du contrat.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git log --oneline -6
+7be3321 oops: suppression du contrat
+053c58f ci: ajout du workflow de tests
+7eae24c feat: squelettes des agents, workflow et demo
+c83141d feat: contrat echange commun
+ed99a66 chore: initialisation du depot
+5638123 chore: initialisation du depot
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git reset --hard HEAD~1
+HEAD is now at 053c58f ci: ajout du workflow de tests
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse HEAD
+053c58f89b42f4e21a70b72a3d29103fa5582332
+[exit code: 0]
+PASS: reset --hard HEAD~1 retrouve exactement le commit precedant erreur.
+PASS: Le contrat est restaure octet pour octet apres reset.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ C:\Python314\python.exe -B -m unittest -v
+test_base_procedures (tests.test_contrat.TestContrat.test_base_procedures) ... ok
+test_niveaux_ordonnes (tests.test_contrat.TestContrat.test_niveaux_ordonnes) ... ok
+test_statut_par_defaut (tests.test_contrat.TestContrat.test_statut_par_defaut) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git reflog "--format=%H %gs"
+053c58f89b42f4e21a70b72a3d29103fa5582332 reset: moving to HEAD~1
+7be332166dd5a22795fd8ac3c6473b19013d9247 commit: oops: suppression du contrat
+053c58f89b42f4e21a70b72a3d29103fa5582332 checkout: moving from develop to essai/recuperation
+053c58f89b42f4e21a70b72a3d29103fa5582332 clone: from C:\Users\houss\Documents\intelliops-lite
+[exit code: 0]
+PASS: Le reflog retrouve le commit supprime, par son message.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git reset --hard 7be332166dd5a22795fd8ac3c6473b19013d9247
+HEAD is now at 7be3321 oops: suppression du contrat
+[exit code: 0]
+PASS: Le reset sur le commit retrouve reproduit la suppression.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git revert --no-edit HEAD
+[essai/recuperation db34a62] Revert "oops: suppression du contrat"
+ Date: Wed Oct 21 13:25:04 2026 +0000
+ 1 file changed, 40 insertions(+)
+ create mode 100644 src/contrat.py
+[exit code: 0]
+PASS: Le revert restaure le contrat octet pour octet en ajoutant un commit inverse.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse HEAD^
+7be332166dd5a22795fd8ac3c6473b19013d9247
+[exit code: 0]
+PASS: Le commit erreur reste dans historique immediatement avant son revert.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ C:\Python314\python.exe -B -m unittest -v
+test_base_procedures (tests.test_contrat.TestContrat.test_base_procedures) ... ok
+test_niveaux_ordonnes (tests.test_contrat.TestContrat.test_niveaux_ordonnes) ... ok
+test_statut_par_defaut (tests.test_contrat.TestContrat.test_statut_par_defaut) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git log --oneline -6
+db34a62 Revert "oops: suppression du contrat"
+7be3321 oops: suppression du contrat
+053c58f ci: ajout du workflow de tests
+7eae24c feat: squelettes des agents, workflow et demo
+c83141d feat: contrat echange commun
+ed99a66 chore: initialisation du depot
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git checkout develop
+Your branch is up to date with 'origin/develop'.
+Switched to branch 'develop'
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git branch -D essai/recuperation
+Deleted branch essai/recuperation (was db34a62).
+[exit code: 0]
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git branch --show-current
+develop
+[exit code: 0]
+PASS: Branche finale develop.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git branch --list essai/recuperation
+
+[exit code: 0]
+PASS: La branche essai/recuperation est supprimee du clone.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git rev-parse HEAD
+053c58f89b42f4e21a70b72a3d29103fa5582332
+[exit code: 0]
+PASS: develop est exactement au commit initial du clone.
+
+CWD: C:\Users\houss\AppData\Local\Temp\intelliops-lite-ex6-jm5482hw\clone
+$ git status --porcelain
+
+[exit code: 0]
+PASS: Arbre final du clone propre.
+
+RESULTAT: Exercice 6 termine integralement dans un clone autonome sans push.
+COMMIT_INITIAL: 053c58f89b42f4e21a70b72a3d29103fa5582332
+COMMIT_ERREUR_RETROUVE: 7be332166dd5a22795fd8ac3c6473b19013d9247

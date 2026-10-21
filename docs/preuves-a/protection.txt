@@ -1,0 +1,52 @@
+$ git status --short
+
+
+exit=0
+
+$ git checkout -b essai/protection
+
+Switched to a new branch 'essai/protection'
+
+exit=0
+
+$ git commit --allow-empty -m test
+[essai/protection 9b86221] test
+
+
+exit=0
+
+$ git pull --ff-only origin develop
+Already up to date.
+
+From C:\Users\houss\Documents\intelliops-lite
+ * branch            develop    -> FETCH_HEAD
+
+exit=0
+
+$ git push https://github.com/MASS0H/intelliops-lite HEAD:develop
+
+remote: This repository moved. Please use the new location:        
+remote:   https://github.com/MASS0H/shopwatch-lite.git        
+remote: error: GH006: Protected branch update failed for refs/heads/develop.        
+remote: 
+remote: - Changes must be made through a pull request.        
+remote: 
+remote: - Required status check "test" is expected.        
+To https://github.com/MASS0H/intelliops-lite
+ ! [remote rejected] HEAD -> develop (protected branch hook declined)
+error: failed to push some refs to 'https://github.com/MASS0H/intelliops-lite'
+
+exit=1
+
+$ git checkout develop
+Your branch is up to date with 'origin/develop'.
+
+Switched to branch 'develop'
+
+exit=0
+
+$ git branch -D essai/protection
+Deleted branch essai/protection (was 9b86221).
+
+
+exit=0

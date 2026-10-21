@@ -8,6 +8,11 @@ Mini-plateforme de supervision d'une chaine DevSecOps : trois agents
 
 ## Equipe
 
-- Hossam - Etudiante A - Extraction
+- Hossam - Etudiant A - Extraction
 - Nouhaila- Analyse
 - Maroua- Notification
+
+## Verification du TP (etudiant A)
+
+Le [bilan de conformite](docs/CONFORMITE_ETUDIANT_A.md) indique les changements,
+les verifications effectuees et les etapes qui attendent les revues de l'equipe.
