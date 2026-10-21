@@ -1,7 +1,9 @@
 import unittest
 
 from src.contrat import Evenement
-from src.extraction import masquer_secrets
+from src.extraction import masquer_secrets, normaliser_log
+
+LIGNE = "2026-10-05 10:02:11 ERROR backend OOMKilled restarts=14 password=abc123"
 
 
 class TestExtraction(unittest.TestCase):
@@ -35,6 +37,43 @@ class TestExtraction(unittest.TestCase):
         for texte in ("", "Service demarre", "user=bob tokenized=abc mypassword=xyz"):
             with self.subTest(texte=texte):
                 self.assertEqual(masquer_secrets(texte), texte)
+
+    def test_normaliser_log(self):
+        evt = normaliser_log(LIGNE, 42)
+        self.assertIsInstance(evt, Evenement)
+        self.assertEqual(evt, Evenement(
+            "EVT-00042", "2026-10-05T10:02:11Z", "DOCKER", "backend",
+            "production", "LOG", "HIGH", "OOMKilled restarts=14 password=[SECRET]",
+        ))
+        self.assertEqual(evt.status, "NEW")
+        self.assertNotIn("abc123", evt.message)
+
+    def test_niveaux_log(self):
+        for niveau, attendu in (
+            ("CRITICAL", "CRITICAL"), ("fatal", "CRITICAL"), ("error", "HIGH"),
+            ("warn", "MEDIUM"), ("WaRnInG", "MEDIUM"), ("INFO", "LOW"),
+            ("debug", "LOW"), ("INCONNU", "LOW"),
+        ):
+            with self.subTest(niveau=niveau):
+                evt = normaliser_log(f"2026-10-05 10:02:11 {niveau} backend message", 1)
+                self.assertEqual(evt.severity, attendu)
+
+    def test_log_source_et_environnement_personnalises(self):
+        evt = normaliser_log(LIGNE, 7, source="KUBERNETES", environment="test")
+        self.assertEqual(evt.id, "EVT-00007")
+        self.assertEqual(evt.source, "KUBERNETES")
+        self.assertEqual(evt.environment, "test")
+
+    def test_log_conserve_le_reste_du_message(self):
+        evt = normaliser_log("2026-10-05 10:02:11 INFO backend Service  demarre", 1)
+        self.assertEqual(evt.message, "Service  demarre")
+
+    def test_log_incomplet(self):
+        for ligne in ("", "2026-10-05", "2026-10-05 10:02:11",
+                      "2026-10-05 10:02:11 INFO", "2026-10-05 10:02:11 INFO backend"):
+            with self.subTest(ligne=ligne):
+                with self.assertRaises(ValueError):
+                    normaliser_log(ligne, 1)
 
 
 if __name__ == "__main__":
