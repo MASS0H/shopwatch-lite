@@ -1,7 +1,7 @@
 import unittest
 
 from src.contrat import Signal
-from src.extraction import lire_journal, masquer_donnees
+from src.extraction import lire_journal, lire_scan, masquer_donnees
 
 LIGNE = "2026-11-27 17:02:11 paiement ERROR timeout passerelle apres 30s card=4970123412341234"
 
@@ -74,6 +74,40 @@ class TestExtraction(unittest.TestCase):
             with self.subTest(ligne=ligne):
                 with self.assertRaises(ValueError):
                     lire_journal(ligne, 1)
+
+    def test_lire_scan(self):
+        rapport = {"id_faille": "CVE-2026-7788", "paquet": "lib-panier", "risque": "critique",
+                   "date": "2026-11-27T17:09:00Z"}
+        sig = lire_scan(rapport, 42)
+        self.assertEqual(sig, Signal(
+            "SH-0042", rapport["date"], "SCANNER", "lib-panier", "production",
+            "FAILLE", "BLOQUANT", "Faille CVE-2026-7788 dans lib-panier",
+        ))
+        self.assertEqual(sig.etat, "RECU")
+
+    def test_gravites_scan(self):
+        for risque, attendu in (("critique", "BLOQUANT"), ("CRITIQUE", "BLOQUANT"),
+                                ("Haut", "MAJEUR"), ("MOYEN", "MODERE"),
+                                ("bas", "MINEUR"), ("inconnu", "MINEUR"),
+                                ("critical", "MINEUR"), ("", "MINEUR")):
+            with self.subTest(risque=risque):
+                rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": risque,
+                           "date": "2026-11-27T17:09:00Z"}
+                self.assertEqual(lire_scan(rapport, 1).gravite, attendu)
+
+    def test_scan_environnement_personnalise(self):
+        rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": "haut", "date": "date"}
+        sig = lire_scan(rapport, 1, env="dev")
+        self.assertEqual(sig.env, "dev")
+        self.assertEqual(sig.date, "date")
+
+    def test_scan_cle_manquante(self):
+        rapport = {"id_faille": "CVE-1", "paquet": "lib", "risque": "haut", "date": "date"}
+        for cle in rapport:
+            with self.subTest(cle=cle):
+                incomplet = {k: v for k, v in rapport.items() if k != cle}
+                with self.assertRaises(ValueError):
+                    lire_scan(incomplet, 1)
 
 
 if __name__ == "__main__":
